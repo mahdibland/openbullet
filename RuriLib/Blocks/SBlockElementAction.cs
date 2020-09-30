@@ -1,4 +1,4 @@
-﻿using OpenQA.Selenium;
+using OpenQA.Selenium;
 using OpenQA.Selenium.Support.UI;
 using RuriLib.Functions.Files;
 using RuriLib.LS;
@@ -238,6 +238,10 @@ namespace RuriLib
                 throw new Exception("Browser not open");
             }
 
+            int waitingTime = 10;
+            try { waitingTime = Int32.Parse(input);}catch{}
+            WebDriverWait driverWait = new WebDriverWait(data.Driver,TimeSpan.FromSeconds(waitingTime));
+
             // Find the element
             IWebElement element = null;
             ReadOnlyCollection<IWebElement> elements = null;
@@ -341,20 +345,18 @@ namespace RuriLib
                         break;
 
                     case ElementAction.WaitForElement:
-                        var ms = 0; // Currently waited milliseconds
-                        var max = 10000;
-                        try { max = int.Parse(input) * 1000; } catch { }// Max ms to wait
-                        var found = false;
-                        while(ms < max)
+                        bool found;
+                        try
                         {
-                            try
+                            found = driverWait.Until(driver => (element = driver.FindElement(FindElements2(locator, data))).Displayed);
+                            if (found)
                             {
                                 elements = FindElements(data);
-                                element = elements[0];
-                                found = true;
-                                break;
                             }
-                            catch { ms += 200; Thread.Sleep(200); }
+                        }
+                        catch (Exception e)
+                        {
+                            found = false;
                         }
                         if (!found) { data.Log(new LogEntry("Timeout while waiting for element", Colors.White)); }
                         break;
@@ -392,6 +394,18 @@ namespace RuriLib
             return img.Clone(new Rectangle(element.Location, element.Size), img.PixelFormat);
         }
 
+        private By FindElements2(ElementLocator locator,BotData data) => (locator == ElementLocator.Class)
+                ? By.ClassName(ReplaceValues(elementString, data))
+                : (locator == ElementLocator.Id)
+                    ? By.Id(ReplaceValues(elementString, data))
+                    : (locator == ElementLocator.Name)
+                        ? By.Name(ReplaceValues(elementString, data))
+                        : (locator == ElementLocator.Selector)
+                            ? By.CssSelector(ReplaceValues(elementString, data))
+                            : (locator == ElementLocator.Tag)
+                                ? By.TagName(ReplaceValues(elementString, data))
+                                : By.XPath(ReplaceValues(elementString, data));
+        
         private ReadOnlyCollection<IWebElement> FindElements(BotData data)
         {
             switch (locator)
